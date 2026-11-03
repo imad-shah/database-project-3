@@ -71,6 +71,24 @@ def test_every_tab_loads(app, dialogs):
             assert tab.table._rows
 
 
+def test_property_table_uses_a_compact_summary(app):
+    tab = tab_named(app, "Properties")
+    displayed = tuple(tab.table._tree.cget("displaycolumns"))
+    assert displayed == (
+        "Property ID",
+        "Status",
+        "Street",
+        "City",
+        "State",
+        "ZIP Code",
+        "Bedrooms",
+        "Bathrooms",
+        "Asking Price",
+        "Photo",
+    )
+    assert len(tab.table._tree.cget("columns")) == len(tab.controller.spec.fields)
+
+
 @pytest.mark.parametrize("name", ["Properties", "Sales", "Agents", "Buyers", "Sellers"])
 def test_saving_an_unchanged_row_round_trips(app, dialogs, controllers, name):
     tab = tab_named(app, name)

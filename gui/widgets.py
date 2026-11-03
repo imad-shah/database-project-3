@@ -69,9 +69,10 @@ class Table(ttk.Frame):
         self._on_select = on_select
         self._rows: list[Row] = []
         self._columns: Sequence[str] = ()
+        self._display_columns: Sequence[str] = ()
         self._cell_font = font.nametofont("TkDefaultFont")
         self._heading_font = font.nametofont("TkHeadingFont")
-        self._tree = ttk.Treeview(self, show="headings", selectmode="browse")
+        self._tree = ttk.Treeview(self, show="headings", selectmode="browse", height=8)
         vertical = ttk.Scrollbar(self, orient="vertical", command=self._tree.yview)
         horizontal = ttk.Scrollbar(self, orient="horizontal", command=self._tree.xview)
         self._tree.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)
@@ -85,11 +86,21 @@ class Table(ttk.Frame):
         self.set_columns(columns)
 
     def set_columns(self, columns: Sequence[str]) -> None:
+        self._display_columns = ()
+        self._tree.configure(displaycolumns=())
         self._columns = columns
         self._tree.configure(columns=tuple(columns))
         for column in columns:
             self._tree.heading(column, text=column)
             self._tree.column(column, anchor="w", stretch=False)
+        self.set_display_columns(columns)
+
+    def set_display_columns(self, columns: Sequence[str]) -> None:
+        unknown = set(columns) - set(self._columns)
+        if unknown:
+            raise ValueError(f"Unknown table columns: {sorted(unknown)}")
+        self._display_columns = columns
+        self._tree.configure(displaycolumns=tuple(columns))
 
     def show(self, rows: Iterable[Row]) -> None:
         self._tree.delete(*self._tree.get_children())
@@ -103,7 +114,8 @@ class Table(ttk.Frame):
             self._tree.selection_set("0")
 
     def _fit_columns(self) -> None:
-        for index, column in enumerate(self._columns):
+        for column in self._display_columns:
+            index = self._columns.index(column)
             cells = [self._cell_font.measure(row[index]) for row in self._rows]
             width = max(self._heading_font.measure(column), *cells, 0)
             self._tree.column(column, width=width + CELL_PADDING)

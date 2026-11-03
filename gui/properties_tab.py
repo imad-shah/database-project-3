@@ -7,6 +7,18 @@ from .entity_tab import EntityTab
 from .widgets import ImagePreview, Row, run_action
 
 IMAGE_TYPES = (("Images", "*.png *.jpg *.jpeg *.gif"), ("All files", "*"))
+SUMMARY_COLUMNS = (
+    "Property ID",
+    "Status",
+    "Street",
+    "City",
+    "State",
+    "ZIP Code",
+    "Bedrooms",
+    "Bathrooms",
+    "Asking Price",
+    "Photo",
+)
 
 
 class PropertiesTab(EntityTab):
@@ -19,6 +31,7 @@ class PropertiesTab(EntityTab):
         on_change: Callable[[], None],
     ) -> None:
         super().__init__(parent, controller, on_change)
+        self.table.set_display_columns(SUMMARY_COLUMNS)
         self._preview = ImagePreview(self.sidebar)
         self._preview.grid(row=2, column=0, sticky="ew")
         self._build_photo_buttons().grid(row=3, column=0, sticky="ew", pady=(8, 0))

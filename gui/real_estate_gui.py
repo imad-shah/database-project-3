@@ -13,7 +13,9 @@ class RealEstateApp(tk.Tk):
     def __init__(self, controllers: Controllers) -> None:
         super().__init__()
         self.title("Real Estate Office")
-        self.minsize(1250, 800)
+        self.geometry("1050x600")
+        self.minsize(650, 350)
+        self.resizable(True, True)
 
         notebook = ttk.Notebook(self, padding=10)
         notebook.pack(fill="both", expand=True)
