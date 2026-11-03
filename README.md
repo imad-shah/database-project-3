@@ -14,7 +14,7 @@ With pip:
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate    # Windows: .venv\Scripts\activate
+source .venv/bin/activate    
 pip install -r requirements.txt
 python -m seed
 python main.py
