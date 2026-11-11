@@ -45,6 +45,7 @@ class EntityTab(ttk.Frame):
     def _select(self, row: Row) -> None:
         names = (field.name for field in self.spec.fields)
         self.form.fill(dict(zip(names, row)))
+        self.form.lock_fixed(True)
 
     def _build_buttons(self) -> ttk.Frame:
         buttons = ttk.Frame(self.sidebar)

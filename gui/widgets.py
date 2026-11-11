@@ -26,11 +26,15 @@ class Form(ttk.LabelFrame):
         self._fields = [field for field in fields if field.in_form]
         self._vars = {field.name: tk.StringVar() for field in self._fields}
         self._choosers: list[tuple[Field, ttk.Combobox]] = []
+        self._fixed: list[tuple[ttk.Widget, str]] = []
         for row, field in enumerate(self._fields):
             ttk.Label(self, text=field.label).grid(
                 row=row, column=0, sticky="w", pady=2
             )
-            self._build_input(field).grid(row=row, column=1, padx=(8, 0), pady=2)
+            widget = self._build_input(field)
+            widget.grid(row=row, column=1, padx=(8, 0), pady=2)
+            if field.fixed:
+                self._fixed.append((widget, str(widget.cget("state"))))
         self.clear()
 
     def values(self) -> dict[str, str]:
@@ -43,6 +47,11 @@ class Form(ttk.LabelFrame):
     def clear(self) -> None:
         for field in self._fields:
             self._vars[field.name].set(field.default)
+        self.lock_fixed(False)
+
+    def lock_fixed(self, locked: bool) -> None:
+        for widget, state in self._fixed:
+            widget.configure(state="disabled" if locked else state)
 
     def refresh(self) -> None:
         for field, chooser in self._choosers:
