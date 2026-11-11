@@ -3,9 +3,9 @@ from typing import Self
 
 import psycopg
 
-from models import Agent, Buyer, Property, Sale, Seller
+from models import Agent, Buyer, Listing, Property, Sale, Seller
 
-from .interfaces import IPropertyRepository, RecordNotFound
+from .interfaces import IListingRepository, IPropertyRepository, RecordNotFound
 from .report_repository import ReportRepository
 from .sql_repository import SqlRepository
 
@@ -41,13 +41,13 @@ class SaleRepository(SqlRepository[Sale]):
 class PropertyRepository(SqlRepository[Property], IPropertyRepository):
     model = Property
     table = "properties"
-    source = "property_listings"
+    source = "property_overview"
     key = "property_id"
     order_by = "city, street"
     computed = frozenset({"status", "has_photo"})
 
-    def find_available(self) -> list[Property]:
-        return self._select("status = 'Available'")
+    def find_unlisted(self) -> list[Property]:
+        return self._select("status <> 'Available'")
 
     def get_image(self, property_id: int) -> bytes | None:
         row = self._con.execute(
@@ -71,12 +71,25 @@ class PropertyRepository(SqlRepository[Property], IPropertyRepository):
         )
 
 
+class ListingRepository(SqlRepository[Listing], IListingRepository):
+    model = Listing
+    table = "listings"
+    source = "property_listings"
+    key = "listing_id"
+    order_by = "city, street, listing_date DESC"
+    computed = frozenset({"status", "street", "city"})
+
+    def find_available(self) -> list[Listing]:
+        return self._select("status = 'Available'")
+
+
 @dataclass(frozen=True, slots=True)
 class Repositories:
     agents: AgentRepository
     buyers: BuyerRepository
     sellers: SellerRepository
     properties: PropertyRepository
+    listings: ListingRepository
     sales: SaleRepository
     reports: ReportRepository
 
@@ -87,6 +100,7 @@ class Repositories:
             buyers=BuyerRepository(con),
             sellers=SellerRepository(con),
             properties=PropertyRepository(con),
+            listings=ListingRepository(con),
             sales=SaleRepository(con),
             reports=ReportRepository(con),
         )

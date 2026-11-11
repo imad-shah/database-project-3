@@ -1,6 +1,7 @@
 from . import queries
-from .database import get_connection, init_db
+from .database import TABLES, get_connection, init_db
 from .interfaces import (
+    IListingRepository,
     IPropertyRepository,
     IReportRepository,
     IRepository,
@@ -9,6 +10,8 @@ from .interfaces import (
 from .repositories import Repositories
 
 __all__ = [
+    "TABLES",
+    "IListingRepository",
     "IPropertyRepository",
     "IReportRepository",
     "IRepository",

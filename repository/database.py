@@ -4,6 +4,7 @@ from pathlib import Path
 import psycopg
 
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
+TABLES = ("agents", "buyers", "sellers", "properties", "listings", "sales")
 DEFAULT_URL = "postgresql://realestate:realestate@localhost:5432/realestate"
 
 
