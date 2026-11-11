@@ -4,17 +4,17 @@ from decimal import Decimal
 from pathlib import Path
 
 import psycopg
+from psycopg import sql
 
 from controller import Controllers, IEntityController, Report, build_controllers
 from models import ReportResult
-from repository import Repositories, get_connection, init_db
+from repository import TABLES, Repositories, get_connection, init_db
 from repository.database import SCHEMA_PATH
 from repository.sql_repository import SqlRepository
 
 OUTPUT_DIR = Path(__file__).parent / "docs"
 REPORT_PATH = OUTPUT_DIR / "report.md"
 IMAGE_DIR = OUTPUT_DIR / "images"
-TABLES = ("agents", "buyers", "sellers", "properties", "sales")
 LETTERS = "abcdefghijklmnopqrstuvwxyz"
 
 
@@ -73,11 +73,10 @@ def _plain(values: dict[str, object]) -> dict[str, str]:
 
 
 def _sale_example(controllers: Controllers) -> dict[str, str]:
-    property_option = controllers.properties.available_options()[0]
     agents = controllers.agents.options()
     return _plain(
         {
-            "property_id": property_option.id,
+            "listing_id": controllers.listings.available_options()[0].id,
             "buyer_id": controllers.buyers.options()[0].id,
             "selling_agent_id": agents[0].id,
             "buyers_agent_id": agents[1].id,
@@ -100,6 +99,21 @@ def _agent_example() -> dict[str, str]:
     )
 
 
+def _rewind_identity(con: psycopg.Connection, repository: SqlRepository) -> None:
+    statement = sql.SQL(
+        "SELECT setval(pg_get_serial_sequence({table}, {key}), "
+        "COALESCE(MAX({column}), 0) + 1, false) FROM {source}"
+    )
+    con.execute(
+        statement.format(
+            table=sql.Literal(repository.table),
+            key=sql.Literal(repository.key),
+            column=sql.Identifier(repository.key),
+            source=sql.Identifier(repository.table),
+        )
+    )
+
+
 def _write_section(
     con: psycopg.Connection,
     heading: str,
@@ -110,6 +124,7 @@ def _write_section(
 ) -> str:
     with con.transaction(force_rollback=True):
         record = controller.save(values)
+    _rewind_identity(con, repository)
     columns = [field.name for field in controller.spec.fields if field.in_form]
     rows = [[getattr(record, name) for name in columns]]
     return "\n\n".join(
