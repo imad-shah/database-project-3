@@ -110,7 +110,11 @@ def listing_spec(
             _key("listing_id", "Listing"),
             Field("status", "Status", in_form=False),
             reference(
-                "property_id", "Property", properties, selectable=unlisted_properties
+                "property_id",
+                "Property",
+                properties,
+                selectable=unlisted_properties,
+                fixed=True,
             ),
             reference("seller_id", "Seller", sellers),
             reference("listing_agent_id", "Listing Agent", agents),
