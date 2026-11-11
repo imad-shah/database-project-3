@@ -133,6 +133,15 @@ def test_listing_form_offers_only_unlisted_homes(app, controllers):
     assert offered == {str(o) for o in controllers.properties.unlisted_options()}
 
 
+def test_listing_property_is_locked_while_editing(app):
+    tab = tab_named(app, "Listings")
+    chooser = next(c for f, c in tab.form._choosers if f.name == "property_id")
+    select_row(app, tab)
+    assert chooser.instate(["disabled"])
+    tab.clear()
+    assert not chooser.instate(["disabled"])
+
+
 def sell(app, controllers, option, sale_date="2005-04-12"):
     sales = tab_named(app, "Sales")
     sales.form.fill(

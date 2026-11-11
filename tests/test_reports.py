@@ -1,10 +1,12 @@
 from collections import defaultdict
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from statistics import mean
 
 import pytest
 
 from controller import AppError
+from models import Listing, Property, Sale
 
 
 def report_named(controllers, title):
@@ -140,6 +142,46 @@ def test_most_expensive_homes_includes_ties_and_sold_prices(seeded, controllers)
         "12 Parkland Manor Ct",
     }
     assert set(column(result, "Status")) == {"Available", "Sold"}
+
+
+def test_relisted_home_appears_once_among_the_most_expensive(seeded, controllers):
+    top = Decimal(2_000_000)
+    home = seeded.properties.save(
+        Property(
+            street="1 Summit Rd",
+            city="Bethlehem",
+            state="PA",
+            zip_code="18015",
+            school_district="Saucon Valley",
+            bedrooms=8,
+            bathrooms=Decimal(7),
+            square_feet=9000,
+            has_pool=True,
+        )
+    )
+    agent = seeded.agents.find_all()[0].agent_id
+    seller = seeded.sellers.find_all()[0].seller_id
+    terms = {"seller_id": seller, "listing_agent_id": agent, "asking_price": top}
+
+    def list_on(day):
+        return seeded.listings.save(
+            Listing(property_id=home.property_id, listing_date=day, **terms)
+        )
+
+    first = list_on(date(2004, 1, 5))
+    seeded.sales.save(
+        Sale(
+            listing_id=first.listing_id,
+            buyer_id=seeded.buyers.find_all()[0].buyer_id,
+            selling_agent_id=agent,
+            sale_price=top,
+            sale_date=date(2004, 2, 5),
+        )
+    )
+    list_on(date(2005, 1, 5))
+    result = run(controllers, "Most expensive homes")
+    assert column(result, "Property ID") == [str(home.property_id)]
+    assert column(result, "Status") == ["Available"]
 
 
 def test_every_most_expensive_home_has_a_picture(seeded, controllers):

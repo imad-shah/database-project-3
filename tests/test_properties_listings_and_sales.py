@@ -176,12 +176,60 @@ def test_a_home_has_one_active_listing_at_a_time(controllers, people, home, list
     assert controllers.properties.unlisted_options() == []
 
 
-def test_a_listing_cannot_move_onto_a_listed_home(controllers, people, home, listing):
+def test_a_listing_cannot_change_property(controllers, people, listing):
     other = controllers.properties.save(home_values(street="2 Main St"))
-    second = controllers.listings.save(listing_values(other, people))
-    moved = listing_values(home, people, listing_id=str(second.listing_id))
-    with pytest.raises(AppError, match="already has an active listing"):
+    moved = listing_values(other, people, listing_id=str(listing.listing_id))
+    with pytest.raises(AppError, match="can't be moved to a different property"):
         controllers.listings.save(moved)
+
+
+def relist(controllers, home, people, listing_date):
+    return controllers.listings.save(
+        listing_values(home, people, listing_date=listing_date)
+    )
+
+
+def test_relisting_before_the_prior_sale_is_rejected(
+    controllers, people, home, listing
+):
+    controllers.sales.save(sale_values(listing, people, sale_date="2004-03-01"))
+    with pytest.raises(AppError, match="can't be relisted before its previous sale"):
+        relist(controllers, home, people, "2004-02-29")
+
+
+@pytest.mark.parametrize("listing_date", ["2004-03-01", "2004-03-02"])
+def test_relisting_on_or_after_the_prior_sale_is_allowed(
+    controllers, people, home, listing, listing_date
+):
+    controllers.sales.save(sale_values(listing, people, sale_date="2004-03-01"))
+    assert relist(controllers, home, people, listing_date).status == "Available"
+
+
+def test_moving_a_relisting_before_the_prior_sale_is_rejected(
+    controllers, people, home, listing
+):
+    controllers.sales.save(sale_values(listing, people, sale_date="2004-03-01"))
+    relisting = relist(controllers, home, people, "2004-06-01")
+    values = listing_values(
+        home, people, listing_id=str(relisting.listing_id), listing_date="2004-02-15"
+    )
+    with pytest.raises(AppError, match="can't be relisted before its previous sale"):
+        controllers.listings.save(values)
+
+
+def test_an_earlier_listing_stays_editable_after_a_resale(
+    controllers, repositories, people, home, listing
+):
+    controllers.sales.save(sale_values(listing, people, sale_date="2004-03-01"))
+    relisting = relist(controllers, home, people, "2004-06-01")
+    controllers.sales.save(
+        sale_values(relisting, people, sale_date="2004-08-01", sale_price="250000")
+    )
+    values = listing_values(
+        home, people, listing_id=str(listing.listing_id), asking_price="231000"
+    )
+    controllers.listings.save(values)
+    assert repositories.listings.find(listing.listing_id).asking_price == 231000
 
 
 def test_a_sold_home_can_be_relisted_and_sold_again(
