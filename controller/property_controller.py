@@ -25,9 +25,9 @@ def _read_image(path: str) -> bytes:
 class PropertyController(EntityController[Property], IPropertyController):
     _repo: IPropertyRepository
 
-    def available_options(self) -> list[Option]:
+    def unlisted_options(self) -> list[Option]:
         with friendly_errors():
-            return self._to_options(self._repo.find_available())
+            return self._to_options(self._repo.find_unlisted())
 
     def image(self, property_id: str) -> bytes | None:
         key = self._parse_key(property_id)

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 
-from models import Property, ReportResult
+from models import Listing, Property, ReportResult
 
 from .fields import Option
 from .reports import Report
@@ -33,7 +33,7 @@ class IEntityController[T](ABC):
 
 class IPropertyController(IEntityController[Property]):
     @abstractmethod
-    def available_options(self) -> list[Option]:
+    def unlisted_options(self) -> list[Option]:
         pass
 
     @abstractmethod
@@ -46,6 +46,12 @@ class IPropertyController(IEntityController[Property]):
 
     @abstractmethod
     def remove_image(self, property_id: str) -> None:
+        pass
+
+
+class IListingController(IEntityController[Listing]):
+    @abstractmethod
+    def available_options(self) -> list[Option]:
         pass
 
 
