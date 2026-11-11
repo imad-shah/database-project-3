@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 
-from models import Property, ReportResult
+from models import Listing, Property, ReportResult
 
 
 class RecordNotFound(Exception):
@@ -28,7 +28,7 @@ class IRepository[T](ABC):
 
 class IPropertyRepository(IRepository[Property]):
     @abstractmethod
-    def find_available(self) -> list[Property]:
+    def find_unlisted(self) -> list[Property]:
         pass
 
     @abstractmethod
@@ -37,6 +37,12 @@ class IPropertyRepository(IRepository[Property]):
 
     @abstractmethod
     def set_image(self, property_id: int, image: bytes | None) -> None:
+        pass
+
+
+class IListingRepository(IRepository[Listing]):
+    @abstractmethod
+    def find_available(self) -> list[Listing]:
         pass
 
 
