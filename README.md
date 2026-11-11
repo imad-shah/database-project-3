@@ -46,11 +46,12 @@ Run these inside the activated virtual environment, or prefix them with `uv run`
 
 ```mermaid
 erDiagram
-    AGENT ||--o{ PROPERTY : lists
-    SELLER ||--o{ PROPERTY : owns
-    PROPERTY ||--o| SALE : "sold in"
+    PROPERTY ||--o{ LISTING : "listed in"
+    SELLER ||--o{ LISTING : signs
+    AGENT ||--o{ LISTING : "represents seller in"
+    LISTING ||--o| SALE : "closes as"
     BUYER ||--o{ SALE : purchases
-    AGENT ||--o{ SALE : "sells"
+    AGENT ||--o{ SALE : sells
     AGENT |o--o{ SALE : "represents buyer in"
 
     AGENT {
@@ -91,15 +92,19 @@ erDiagram
         int square_feet
         int year_built
         boolean has_pool
-        numeric asking_price
-        date listing_date
+        lo image
+    }
+    LISTING {
+        int listing_id PK
+        int property_id FK
         int seller_id FK
         int listing_agent_id FK
-        lo image
+        numeric asking_price
+        date listing_date
     }
     SALE {
         int sale_id PK
-        int property_id FK,UK
+        int listing_id FK,UK
         int buyer_id FK
         int selling_agent_id FK
         int buyers_agent_id FK
@@ -108,8 +113,8 @@ erDiagram
     }
 ```
 
-- A home is available until it has a row in `sales`. Availability is derived by the `property_listings` view, so it can't disagree with the sales records.
-- The database enforces the rules: a home sells at most once, and a sale can't predate its listing. The controller translates violations into plain messages.
+- A property is the physical house. A listing is one agreement to sell it: who the seller is, which agent represents them, the asking price and the date. A listing is available until it has a row in `sales`. Availability is derived by the `property_listings` view, so it can't disagree with the sales records.
+- The database enforces the rules: a listing sells at most once, a house can be relisted after it sells but has at most one active listing at a time, and a sale can't predate its listing. The controller translates violations into plain messages.
 - Photos are PostgreSQL large objects. They are stored through `lo_from_bytea` and read through `lo_get`, the client-side equivalents of `lo_import` and `lo_export`, because the app and the server don't share a filesystem. The `lo_manage` trigger frees a photo's blob when it is replaced or its home is deleted.
 
 ## Architecture
