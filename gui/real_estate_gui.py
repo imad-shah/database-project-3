@@ -24,6 +24,7 @@ class RealEstateApp(tk.Tk):
             *(
                 EntityTab(notebook, controller, self.refresh)
                 for controller in (
+                    controllers.listings,
                     controllers.sales,
                     controllers.agents,
                     controllers.buyers,
