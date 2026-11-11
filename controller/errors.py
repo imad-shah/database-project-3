@@ -22,6 +22,10 @@ CONSTRAINT_MESSAGES = {
     "properties_square_feet_positive": "Square feet must be greater than zero.",
     "properties_year_built_valid": "Year built must be between 1600 and 2100.",
     "listings_price_positive": "Asking price must be greater than zero.",
+    "listings_after_prior_sale": (
+        "A home can't be relisted before its previous sale date."
+    ),
+    "listings_property_fixed": "A listing can't be moved to a different property.",
     "listings_one_active": (
         "That property already has an active listing. Sell or remove it first."
     ),

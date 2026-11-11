@@ -24,6 +24,7 @@ class Field:
     type: FieldType = TEXT
     required: bool = False
     editable: bool = True
+    fixed: bool = False
     in_form: bool = True
     default: str = ""
     source: OptionSource | None = None
@@ -73,12 +74,14 @@ def reference(
     source: OptionSource,
     required: bool = True,
     selectable: OptionSource | None = None,
+    fixed: bool = False,
 ) -> Field:
     return Field(
         name,
         label,
         REFERENCE,
         required=required,
+        fixed=fixed,
         source=source,
         selectable=selectable,
     )
