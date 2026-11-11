@@ -59,6 +59,7 @@ def select_row(app, tab, index=0):
 def test_every_tab_loads(app, dialogs):
     assert [tab.tab_name for tab in app.tabs] == [
         "Properties",
+        "Listings",
         "Sales",
         "Agents",
         "Buyers",
@@ -83,13 +84,15 @@ def test_property_table_uses_a_compact_summary(app):
         "ZIP Code",
         "Bedrooms",
         "Bathrooms",
-        "Asking Price",
+        "Square Feet",
         "Photo",
     )
     assert len(tab.table._tree.cget("columns")) == len(tab.controller.spec.fields)
 
 
-@pytest.mark.parametrize("name", ["Properties", "Sales", "Agents", "Buyers", "Sellers"])
+@pytest.mark.parametrize(
+    "name", ["Properties", "Listings", "Sales", "Agents", "Buyers", "Sellers"]
+)
 def test_saving_an_unchanged_row_round_trips(app, dialogs, controllers, name):
     tab = tab_named(app, name)
     before = tab.table._rows[0]
@@ -102,7 +105,7 @@ def test_saving_an_unchanged_row_round_trips(app, dialogs, controllers, name):
 
 def test_blank_form_does_not_preselect_records(app):
     tab = tab_named(app, "Sales")
-    assert tab.form.values()["property_id"] == ""
+    assert tab.form.values()["listing_id"] == ""
     assert tab.form.values()["buyer_id"] == ""
 
 
@@ -112,33 +115,99 @@ def test_invalid_save_shows_an_error(app, dialogs):
     assert dialogs.errors == ["First Name is required."]
 
 
-def test_sale_form_offers_only_available_homes(app, controllers):
-    tab = tab_named(app, "Sales")
-    chooser = next(c for f, c in tab.form._choosers if f.name == "property_id")
-    offered = set(chooser.cget("values"))
-    available = {str(o) for o in controllers.properties.available_options()}
-    assert offered == available
+def chooser_values(tab, name):
+    return set(next(c for f, c in tab.form._choosers if f.name == name)["values"])
 
 
-def test_recording_a_sale_updates_other_tabs(app, dialogs, controllers):
+def row_for(tab, record_id):
+    return next(r for r in tab.table._rows if r[0] == str(record_id))
+
+
+def test_sale_form_offers_only_available_listings(app, controllers):
+    offered = chooser_values(tab_named(app, "Sales"), "listing_id")
+    assert offered == {str(o) for o in controllers.listings.available_options()}
+
+
+def test_listing_form_offers_only_unlisted_homes(app, controllers):
+    offered = chooser_values(tab_named(app, "Listings"), "property_id")
+    assert offered == {str(o) for o in controllers.properties.unlisted_options()}
+
+
+def sell(app, controllers, option, sale_date="2005-04-12"):
     sales = tab_named(app, "Sales")
-    properties = tab_named(app, "Properties")
-    option = controllers.properties.available_options()[0]
     sales.form.fill(
         {
-            "property_id": str(option),
+            "listing_id": str(option),
             "buyer_id": str(controllers.buyers.options()[0]),
             "selling_agent_id": str(controllers.agents.options()[0]),
             "sale_price": "$240,000",
-            "sale_date": "2005-04-12",
+            "sale_date": sale_date,
         }
     )
     sales._save()
+
+
+def test_recording_a_sale_updates_other_tabs(app, dialogs, controllers, seeded):
+    option = controllers.listings.available_options()[0]
+    property_id = seeded.listings.find(option.id).property_id
+    sell(app, controllers, option)
     assert dialogs.errors == []
     assert dialogs.infos == ["Sale saved."]
-    assert str(option) not in sales.form._choosers[0][1].cget("values")
-    row = next(r for r in properties.table._rows if r[0] == str(option.id))
-    assert "Sold" in row
+    assert str(option) not in chooser_values(tab_named(app, "Sales"), "listing_id")
+    assert row_for(tab_named(app, "Listings"), option.id)[1] == "Sold"
+    assert row_for(tab_named(app, "Properties"), property_id)[1] == "Sold"
+
+
+def test_a_home_can_be_added_listed_sold_and_relisted(app, dialogs, controllers):
+    properties = tab_named(app, "Properties")
+    listings = tab_named(app, "Listings")
+    properties.form.fill(
+        {
+            "street": "5 New St",
+            "city": "Easton",
+            "state": "PA",
+            "zip_code": "18042",
+            "school_district": "Easton Area",
+            "bedrooms": "3",
+            "bathrooms": "2",
+            "square_feet": "1600",
+            "has_pool": "No",
+        }
+    )
+    properties._save()
+    home = next(
+        o for o in controllers.properties.options() if o.label.startswith("5 New St")
+    )
+    assert row_for(properties, home.id)[1] == "Not Listed"
+
+    def list_home(listing_date):
+        listings.form.fill(
+            {
+                "property_id": str(home),
+                "seller_id": str(controllers.sellers.options()[0]),
+                "listing_agent_id": str(controllers.agents.options()[0]),
+                "asking_price": "$200,000",
+                "listing_date": listing_date,
+            }
+        )
+        listings._save()
+        return next(
+            o for o in controllers.listings.available_options() if o.label == home.label
+        )
+
+    first = list_home("2005-01-03")
+    assert row_for(properties, home.id)[1] == "Available"
+    assert str(home) not in chooser_values(listings, "property_id")
+    sell(app, controllers, first, sale_date="2005-02-01")
+    assert row_for(properties, home.id)[1] == "Sold"
+    assert str(home) in chooser_values(listings, "property_id")
+
+    second = list_home("2005-03-01")
+    assert second.id != first.id
+    assert row_for(listings, first.id)[1] == "Sold"
+    assert row_for(listings, second.id)[1] == "Available"
+    assert row_for(properties, home.id)[1] == "Available"
+    assert dialogs.errors == []
 
 
 def test_delete_needs_confirmation(app, dialogs, seeded):
