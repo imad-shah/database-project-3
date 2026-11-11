@@ -2,7 +2,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from operator import attrgetter
 
-from models import Agent, Buyer, Property, Sale, Seller
+from models import Agent, Buyer, Listing, Property, Sale, Seller
 
 from .field_types import DATE, DECIMAL, INTEGER, MONEY, UPPERCASE, YES_NO
 from .fields import Field, OptionSource, reference
@@ -27,6 +27,7 @@ def _key(name: str, title: str) -> Field:
 
 
 _full_name = attrgetter("full_name")
+_address = "{0.street}, {0.city}".format
 
 _PERSON_FIELDS = (
     Field("first_name", "First Name", required=True),
@@ -71,37 +72,57 @@ SELLER_SPEC = EntitySpec(
 )
 
 
-def property_spec(sellers: OptionSource, agents: OptionSource) -> EntitySpec[Property]:
+PROPERTY_SPEC = EntitySpec(
+    title="Property",
+    plural="Properties",
+    model=Property,
+    label=_address,
+    fields=(
+        _key("property_id", "Property"),
+        Field("status", "Status", in_form=False),
+        Field("street", "Street", required=True),
+        Field("city", "City", required=True),
+        Field("state", "State", UPPERCASE, required=True, default="PA"),
+        Field("zip_code", "ZIP Code", required=True),
+        Field("school_district", "School District", required=True),
+        Field("bedrooms", "Bedrooms", INTEGER, required=True),
+        Field("bathrooms", "Bathrooms", DECIMAL, required=True),
+        Field("square_feet", "Square Feet", INTEGER, required=True),
+        Field("year_built", "Year Built", INTEGER),
+        Field("has_pool", "Swimming Pool", YES_NO, required=True, default="No"),
+        Field("has_photo", "Photo", YES_NO, in_form=False),
+    ),
+)
+
+
+def listing_spec(
+    properties: OptionSource,
+    unlisted_properties: OptionSource,
+    sellers: OptionSource,
+    agents: OptionSource,
+) -> EntitySpec[Listing]:
     return EntitySpec(
-        title="Property",
-        plural="Properties",
-        model=Property,
-        label=attrgetter("address"),
+        title="Listing",
+        plural="Listings",
+        model=Listing,
+        label=_address,
         fields=(
-            _key("property_id", "Property"),
+            _key("listing_id", "Listing"),
             Field("status", "Status", in_form=False),
-            Field("street", "Street", required=True),
-            Field("city", "City", required=True),
-            Field("state", "State", UPPERCASE, required=True, default="PA"),
-            Field("zip_code", "ZIP Code", required=True),
-            Field("school_district", "School District", required=True),
-            Field("bedrooms", "Bedrooms", INTEGER, required=True),
-            Field("bathrooms", "Bathrooms", DECIMAL, required=True),
-            Field("square_feet", "Square Feet", INTEGER, required=True),
-            Field("year_built", "Year Built", INTEGER),
-            Field("has_pool", "Swimming Pool", YES_NO, required=True, default="No"),
-            Field("asking_price", "Asking Price", MONEY, required=True),
-            Field("listing_date", "Listing Date (YYYY-MM-DD)", DATE, required=True),
+            reference(
+                "property_id", "Property", properties, selectable=unlisted_properties
+            ),
             reference("seller_id", "Seller", sellers),
             reference("listing_agent_id", "Listing Agent", agents),
-            Field("has_photo", "Photo", YES_NO, in_form=False),
+            Field("asking_price", "Asking Price", MONEY, required=True),
+            Field("listing_date", "Listing Date (YYYY-MM-DD)", DATE, required=True),
         ),
     )
 
 
 def sale_spec(
-    properties: OptionSource,
-    available_properties: OptionSource,
+    listings: OptionSource,
+    available_listings: OptionSource,
     buyers: OptionSource,
     agents: OptionSource,
 ) -> EntitySpec[Sale]:
@@ -109,12 +130,10 @@ def sale_spec(
         title="Sale",
         plural="Sales",
         model=Sale,
-        delete_warning="\n\nThe property will be listed as available again.",
+        delete_warning="\n\nThe listing will be available again.",
         fields=(
             _key("sale_id", "Sale"),
-            reference(
-                "property_id", "Property", properties, selectable=available_properties
-            ),
+            reference("listing_id", "Listing", listings, selectable=available_listings),
             reference("buyer_id", "Buyer", buyers),
             reference("selling_agent_id", "Selling Agent", agents),
             reference("buyers_agent_id", "Buyer's Agent", agents, required=False),
