@@ -151,8 +151,46 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER listings_one_active
-    AFTER INSERT OR UPDATE OF property_id ON listings
+    AFTER INSERT ON listings
     FOR EACH ROW EXECUTE FUNCTION enforce_one_active_listing();
+
+CREATE OR REPLACE FUNCTION enforce_property_fixed() RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.property_id <> OLD.property_id THEN
+        RAISE EXCEPTION 'listing property cannot change'
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'listings_property_fixed';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER listings_property_fixed
+    BEFORE UPDATE OF property_id ON listings
+    FOR EACH ROW EXECUTE FUNCTION enforce_property_fixed();
+
+CREATE OR REPLACE FUNCTION enforce_after_prior_sale() RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM listings l
+        JOIN sales s ON s.listing_id = l.listing_id
+        WHERE l.property_id = NEW.property_id
+          AND l.listing_id <> NEW.listing_id
+          AND s.sale_date > NEW.listing_date
+          AND l.listing_date < COALESCE(
+              (SELECT sale_date FROM sales WHERE listing_id = NEW.listing_id),
+              'infinity'
+          )
+    ) THEN
+        RAISE EXCEPTION 'listing overlaps an earlier sale of the property'
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'listings_after_prior_sale';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER listings_after_prior_sale
+    BEFORE INSERT OR UPDATE OF listing_date, property_id ON listings
+    FOR EACH ROW EXECUTE FUNCTION enforce_after_prior_sale();
 
 CREATE OR REPLACE FUNCTION enforce_sale_kept_after_relisting() RETURNS TRIGGER AS $$
 BEGIN
