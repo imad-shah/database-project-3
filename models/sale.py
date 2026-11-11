@@ -5,7 +5,7 @@ from decimal import Decimal
 
 @dataclass(slots=True, kw_only=True)
 class Sale:
-    property_id: int
+    listing_id: int
     buyer_id: int
     selling_agent_id: int
     sale_price: Decimal
