@@ -26,6 +26,11 @@ def money(value):
     return f"{value:,.2f}"
 
 
+def for_sale(seeded):
+    homes = {h.property_id: h for h in seeded.properties.find_all()}
+    return [(homes[lst.property_id], lst) for lst in seeded.listings.find_available()]
+
+
 def test_every_report_has_an_interesting_answer(seeded, controllers):
     for report in controllers.reports.reports:
         assert run(controllers, report.title).rows, report.title
@@ -34,8 +39,8 @@ def test_every_report_has_an_interesting_answer(seeded, controllers):
 def test_homes_by_city_and_price(seeded, controllers):
     expected = {
         h.street
-        for h in seeded.properties.find_available()
-        if h.city == "Bethlehem" and 200_000 <= h.asking_price <= 250_000
+        for h, lst in for_sale(seeded)
+        if h.city == "Bethlehem" and 200_000 <= lst.asking_price <= 250_000
     }
     result = run(controllers, "Homes by city and price")
     assert set(column(result, "Street")) == expected
@@ -58,7 +63,7 @@ def test_sold_homes_are_excluded_from_for_sale_searches(seeded, controllers):
 def test_homes_by_district(seeded, controllers):
     expected = {
         h.street
-        for h in seeded.properties.find_available()
+        for h, _ in for_sale(seeded)
         if h.school_district == "Parkland" and h.bedrooms >= 4 and not h.has_pool
     }
     result = run(controllers, "Homes by school district")
@@ -103,7 +108,7 @@ def test_top_agent_reports_ties(seeded, controllers):
 
 def test_agent_performance_covers_each_agent(seeded, controllers):
     listing_dates = {
-        h.property_id: h.listing_date for h in seeded.properties.find_all()
+        lst.listing_id: lst.listing_date for lst in seeded.listings.find_all()
     }
     grouped = defaultdict(list)
     for sale in yearly_sales(seeded, 2004):
@@ -116,7 +121,7 @@ def test_agent_performance_covers_each_agent(seeded, controllers):
         price = mean(s.sale_price for s in sales).quantize(
             Decimal("0.01"), ROUND_HALF_UP
         )
-        days = mean((s.sale_date - listing_dates[s.property_id]).days for s in sales)
+        days = mean((s.sale_date - listing_dates[s.listing_id]).days for s in sales)
         assert row[1] == str(len(sales))
         assert row[2] == money(price)
         assert abs(Decimal(row[3]) - Decimal(str(days))) < Decimal("0.06")
@@ -155,8 +160,8 @@ def test_buyer_matches_respect_preferences(seeded, controllers):
     )
     expected = {
         h.street
-        for h in seeded.properties.find_available()
-        if h.asking_price <= buyer.max_budget
+        for h, lst in for_sale(seeded)
+        if lst.asking_price <= buyer.max_budget
         and h.bedrooms >= buyer.min_bedrooms
         and (buyer.preferred_city is None or h.city == buyer.preferred_city)
     }
@@ -195,7 +200,22 @@ def test_report_input_cannot_inject_sql(seeded, controllers):
 def test_seed_is_repeatable(seeded, con):
     from seed import populate, reset
 
-    first = [(p.street, p.asking_price) for p in seeded.properties.find_all()]
+    def snapshot():
+        return [
+            (lst.street, lst.asking_price, lst.listing_date, lst.status)
+            for lst in seeded.listings.find_all()
+        ]
+
+    first = snapshot()
     reset(con)
     populate(seeded)
-    assert [(p.street, p.asking_price) for p in seeded.properties.find_all()] == first
+    assert snapshot() == first
+
+
+def test_seed_has_a_home_that_sold_and_was_relisted(seeded):
+    listings = [
+        lst for lst in seeded.listings.find_all() if lst.street == "75 Ferry St"
+    ]
+    assert sorted(lst.status for lst in listings) == ["Available", "Sold"]
+    assert len({lst.seller_id for lst in listings}) == 2
+    assert len({lst.property_id for lst in listings}) == 1
