@@ -57,10 +57,15 @@ ORDER BY "Average Sale Price ($)" DESC NULLS LAST, "Agent"
 """
 
 MOST_EXPENSIVE_HOMES = f"""
+WITH latest AS (
+    SELECT DISTINCT ON (property_id) *
+    FROM property_listings
+    ORDER BY property_id, listing_date DESC, listing_id DESC
+)
 SELECT l.property_id AS "Property ID", {_ADDRESS}, l.status AS "Status", l.price AS "Price ($)"
-FROM property_listings l
-WHERE l.price = (SELECT MAX(price) FROM property_listings)
-ORDER BY l.listing_id
+FROM latest l
+WHERE l.price = (SELECT MAX(price) FROM latest)
+ORDER BY l.property_id
 """
 
 HOMES_FOR_BUYER = f"""
