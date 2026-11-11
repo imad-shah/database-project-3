@@ -16,7 +16,7 @@ SUMMARY_COLUMNS = (
     "ZIP Code",
     "Bedrooms",
     "Bathrooms",
-    "Asking Price",
+    "Square Feet",
     "Photo",
 )
 
